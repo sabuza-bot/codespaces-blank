@@ -8,58 +8,114 @@
   </head>
   <body class="start-cover-active">
     <div class="start-menu" id="startMenu">
-      <div class="panel start-panel">
-        <h1>Small Kingdom</h1>
-        <p class="muted">Choose a mode to begin.</p>
+      <canvas id="waveVisualizer" class="wave-visualizer" aria-hidden="true"></canvas>
+      <div class="start-title" aria-hidden="true">cuboscillator</div>
+      <div class="start-hint" aria-hidden="true">Hint: Cube the Circle, or Circle the Cube!</div>
+      <div class="panel start-panel" id="modePanel">
         <div class="menu-actions">
-          <button type="button" id="startOnePlayer">1 Player</button>
-          <button type="button" id="startTwoPlayer">2 Player</button>
-          <button type="button" id="escapeButton">ESCAPE</button>
-        </div>
-        <p class="muted" id="startStatus"></p>
-      </div>
-    </div>
-
-    <div class="container hidden" id="gameContainer">
-      <div class="panel">
-        <h1>Small Kingdom (Yawhg-Style Prototype)</h1>
-      </div>
-
-      <div class="panel tracker">
-        <div><span class="label">Round:</span> <span id="roundValue">1</span></div>
-        <div>
-          <span class="label">Current Player:</span>
-          <span id="playerTurnValue">1</span> / <span id="playerCountValue">2</span>
-        </div>
-        <div>
-          <span class="label">Theme:</span>
-          <select id="themeSelect" aria-label="Theme selector">
-            <option value="gba-olive">GBA Olive</option>
-            <option value="gba-teal">GBA Teal</option>
-            <option value="gba-violet">GBA Violet</option>
-            <option value="terminal">Terminal Green</option>
-          </select>
+          <button type="button" id="startOnePlayer">Play</button>
+          <button type="button" id="escapeButton">Escape</button>
         </div>
       </div>
 
-      <div class="panel" id="playerPanel">
-        <h2>Player Info</h2>
-        <p><span class="label">Name:</span> <span id="playerName"></span></p>
-        <div class="stats-grid" id="statsGrid"></div>
-      </div>
-
-      <div class="panel" id="eventPanel">
-        <h2>Event</h2>
-        <p class="event-text" id="eventText"></p>
-        <div class="choices">
-          <button type="button" id="choiceAButton"></button>
-          <button type="button" id="choiceBButton"></button>
+      <div class="cube-overlay hidden" id="cubeOverlay">
+        <div class="cube-scene" aria-hidden="true">
+          <div class="cube-rotator">
+            <div class="cube" id="practiceCube">
+              <div class="cube-face face-front"></div>
+              <div class="cube-face face-back"></div>
+              <div class="cube-face face-right"></div>
+              <div class="cube-face face-left"></div>
+              <div class="cube-face face-top"></div>
+              <div class="cube-face face-bottom"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="panel">
-        <h2>History</h2>
-        <div id="log" class="log"></div>
+      <div class="cube-boundary" id="cubeBoundary" aria-hidden="true"></div>
+
+      <div class="cube-hover-ring center-ring" id="cubeHoverRing" aria-hidden="true"></div>
+
+      <div class="hud-panel hidden" id="hudPanel">
+        <div class="hud-row">
+          <label class="hud-toggle">
+            <input type="checkbox" id="toggleWaveCoords" checked />
+            <span>Show wave position</span>
+          </label>
+        </div>
+        <div class="hud-row">
+          <label class="hud-toggle">
+            <input type="checkbox" id="toggleWaveHeader" checked />
+            <span>Show waveform header</span>
+          </label>
+        </div>
+        <div class="hud-row">
+          <label class="hud-toggle">
+            <input type="checkbox" id="toggleFloatStop" />
+            <span>Stop floating</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="waveform-header hidden" id="waveformHeader">Sine</div>
+
+      <div class="panel start-panel hidden" id="controlPanel">
+        <div class="status-row cube-coords-hud" id="cubeCoords">
+          <div class="coord-line">
+            <span>Cube dX:</span>
+            <strong id="cubeCoordX">0</strong>
+          </div>
+          <div class="coord-line">
+            <span>Cube dY:</span>
+            <strong id="cubeCoordY">0</strong>
+          </div>
+          <div class="coord-line">
+            <span>Dist:</span>
+            <strong id="cubeCoordDist">0</strong>
+          </div>
+        </div>
+        <div class="status-row wave-coords-hud hidden" id="waveCoords">
+          <div class="coord-line">
+            <span>Freq:</span>
+            <strong id="waveCoordX">0.00</strong>
+          </div>
+          <div class="coord-line">
+            <span>Amp:</span>
+            <strong id="waveCoordY">0.00</strong>
+          </div>
+        </div>
+        <div class="control-grid">
+          <div class="wasd-grid character-grid" id="wasdGrid">
+            <div class="wasd-card character-card" data-wasd-card data-key="W">
+              <div class="selection-arrow" aria-hidden="true">W</div>
+            </div>
+            <div class="wasd-card character-card" data-wasd-card data-key="A">
+              <div class="selection-arrow" aria-hidden="true">A</div>
+            </div>
+            <div class="wasd-card character-card" data-wasd-card data-key="S">
+              <div class="selection-arrow" aria-hidden="true">S</div>
+            </div>
+            <div class="wasd-card character-card" data-wasd-card data-key="D">
+              <div class="selection-arrow" aria-hidden="true">D</div>
+            </div>
+          </div>
+
+          <div class="direction-grid character-grid" id="directionGrid">
+            <div class="direction-card character-card" data-direction-card data-key="ArrowLeft">
+              <div class="selection-arrow" aria-hidden="true">&larr;</div>
+            </div>
+            <div class="direction-card character-card" data-direction-card data-key="ArrowUp">
+              <div class="selection-arrow" aria-hidden="true">&uarr;</div>
+            </div>
+            <div class="direction-card character-card" data-direction-card data-key="ArrowRight">
+              <div class="selection-arrow" aria-hidden="true">&rarr;</div>
+            </div>
+            <div class="direction-card character-card" data-direction-card data-key="ArrowDown">
+              <div class="selection-arrow" aria-hidden="true">&darr;</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
