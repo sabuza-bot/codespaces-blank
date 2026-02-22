@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yawhg-Style Prototype</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="start-cover-active">
+    <div class="start-menu" id="startMenu">
+      <div class="panel start-panel">
+        <h1>Small Kingdom</h1>
+        <p class="muted">Choose a mode to begin.</p>
+        <div class="menu-actions">
+          <button type="button" id="startOnePlayer">1 Player</button>
+          <button type="button" id="startTwoPlayer">2 Player</button>
+          <button type="button" id="escapeButton">ESCAPE</button>
+        </div>
+        <p class="muted" id="startStatus"></p>
+      </div>
+    </div>
+
+    <div class="container hidden" id="gameContainer">
+      <div class="panel">
+        <h1>Small Kingdom (Yawhg-Style Prototype)</h1>
+      </div>
+
+      <div class="panel tracker">
+        <div><span class="label">Round:</span> <span id="roundValue">1</span></div>
+        <div>
+          <span class="label">Current Player:</span>
+          <span id="playerTurnValue">1</span> / <span id="playerCountValue">2</span>
+        </div>
+        <div>
+          <span class="label">Theme:</span>
+          <select id="themeSelect" aria-label="Theme selector">
+            <option value="gba-olive">GBA Olive</option>
+            <option value="gba-teal">GBA Teal</option>
+            <option value="gba-violet">GBA Violet</option>
+            <option value="terminal">Terminal Green</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel" id="playerPanel">
+        <h2>Player Info</h2>
+        <p><span class="label">Name:</span> <span id="playerName"></span></p>
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+
+      <div class="panel" id="eventPanel">
+        <h2>Event</h2>
+        <p class="event-text" id="eventText"></p>
+        <div class="choices">
+          <button type="button" id="choiceAButton"></button>
+          <button type="button" id="choiceBButton"></button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>History</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
