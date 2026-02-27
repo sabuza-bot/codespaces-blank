@@ -7,118 +7,144 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="start-cover-active">
-    <div class="start-menu" id="startMenu">
-      <canvas id="waveVisualizer" class="wave-visualizer" aria-hidden="true"></canvas>
-      <div class="start-title" aria-hidden="true">cuboscillator</div>
-      <div class="start-hint" aria-hidden="true">Hint: Cube the Circle, or Circle the Cube!</div>
-      <div class="panel start-panel" id="modePanel">
-        <div class="menu-actions">
-          <button type="button" id="startOnePlayer">Play</button>
-          <button type="button" id="escapeButton">Escape</button>
+    <section class="game-start-menu" id="gameStartMenu" aria-label="Game start menu">
+      <div class="game-start-panel">
+        <h1 class="game-start-title">
+          <a
+            class="game-start-title-link"
+            href="https://www.charitywater.org/home?utm_source=bing&utm_medium=paid-ppc&utm_campaign=bof-spring-usrow&utm_term=MS_BOFU_Brand_PD_SRC_BRN_CVR_SPR_USA_MTD_V1&utm_content=branded&msclkid=fe38f12017af1ccf697d988217a531d9"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            CHARITY WATER
+          </a>
+        </h1>
+        <p class="game-start-subtitle">Follow these rules before you launch.</p>
+
+        <div class="game-rules" aria-label="Mission rules">
+          <h2>How to Play</h2>
+          <ol>
+            <li>
+              Rotate the Planet with <strong>Left Click + Drag</strong> to navigate the planet,
+              also use the <strong>mouse wheel</strong> scroll.
+            </li>
+            <li>
+              Move your cursor over the planet's surface to scan nearby sources.
+              The HUD shows latitude, longitude, depth, and material readout.
+            </li>
+            <li>
+              The water that you need to obtain gives off a distinct wave signature
+              that you can observe in the top right. You can also hear what
+              <strong>TOXIN/WASTE</strong> sounds like too!
+            </li>
+            <li>
+              Try to obtain water while minimizing the amount of waste pickup.
+            </li>
+          </ol>
+          <p class="game-rule-emphasis game-rule-outcome" aria-label="Win and loss conditions">
+            <strong class="win-text">320 Water Score to WIN</strong>
+            <span class="rule-divider">|</span>
+            <strong class="loss-text">100 Contamination is a LOSS</strong>
+          </p>
+          <p class="game-rule-emphasis game-rule-restart">Press <strong>R</strong> to restart</p>
+        </div>
+
+        <div class="game-start-actions">
+          <button type="button" id="startMissionButton" aria-label="Start Mission">
+            <img
+              src="color scheme/logo for charity water.png"
+              alt="Start Mission"
+              class="start-mission-logo"
+            />
+          </button>
         </div>
       </div>
-
-      <div class="cube-overlay hidden" id="cubeOverlay">
-        <div class="cube-scene" aria-hidden="true">
-          <div class="cube-rotator">
-            <div class="cube" id="practiceCube">
-              <div class="cube-face face-front"></div>
-              <div class="cube-face face-back"></div>
-              <div class="cube-face face-right"></div>
-              <div class="cube-face face-left"></div>
-              <div class="cube-face face-top"></div>
-              <div class="cube-face face-bottom"></div>
-            </div>
-          </div>
+    </section>
+    <main class="scanner-stage" aria-label="Planet scanner">
+      <canvas id="planetCanvas" class="planet-canvas" aria-hidden="true"></canvas>
+      <a
+        class="scanner-charity-header"
+        href="https://www.charitywater.org/home?utm_source=bing&utm_medium=paid-ppc&utm_campaign=bof-spring-usrow&utm_term=MS_BOFU_Brand_PD_SRC_BRN_CVR_SPR_USA_MTD_V1&utm_content=branded&msclkid=fe38f12017af1ccf697d988217a531d9"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Visit charity: water"
+      >
+        <img
+          src="color scheme/logo for charity water.png"
+          alt="charity: water logo"
+          class="scanner-charity-logo"
+        />
+        <span class="scanner-charity-title">charity: water</span>
+      </a>
+      <div class="scanner-hud" aria-live="polite">
+        <div class="scanner-title">Planet Scan</div>
+        <div class="scanner-line">Hover to scan surface</div>
+        <div class="scanner-line">Left click + drag to rotate longitude / latitude</div>
+        <div class="scanner-line">Right click to place a scan marker</div>
+        <div class="scanner-line">Mouse wheel to zoom</div>
+        <div class="scanner-readout">
+          <span>Lat:</span>
+          <strong id="latReadout">0.0°</strong>
+          <span>Lon:</span>
+          <strong id="lonReadout">0.0°</strong>
+          <span>Depth:</span>
+          <strong id="depthReadout">0%</strong>
+        </div>
+        <div class="scanner-readout">
+          <span>Material:</span>
+          <strong id="materialReadout">None</strong>
+          <span>Water Score:</span>
+          <strong id="waterScoreReadout">0</strong>
+          <span>Contam:</span>
+          <strong id="contaminationReadout">0/100</strong>
+        </div>
+        <div class="scanner-readout scanner-graph" id="materialGraph" aria-label="Material graph">
+          <span>Water</span>
+          <strong id="graphWater">12</strong>
+          <span>Toxin</span>
+          <strong id="graphToxin">19</strong>
+          <span>Waste</span>
+          <strong id="graphWaste">19</strong>
+        </div>
+        <div class="scanner-readout scanner-status-row">
+          <strong class="scanner-status" id="missionStatus" data-state="running">Collect water and avoid contamination.</strong>
+        </div>
+        <div class="scanner-readout scanner-actions">
+          <button type="button" id="restartMission">Restart (R)</button>
+          <button type="button" id="viewRulesButton">View Rules</button>
         </div>
       </div>
-
-      <div class="cube-boundary" id="cubeBoundary" aria-hidden="true"></div>
-
-      <div class="cube-hover-ring center-ring" id="cubeHoverRing" aria-hidden="true"></div>
-
-      <div class="hud-panel hidden" id="hudPanel">
-        <div class="hud-row">
-          <label class="hud-toggle">
-            <input type="checkbox" id="toggleWaveCoords" checked />
-            <span>Show wave position</span>
-          </label>
-        </div>
-        <div class="hud-row">
-          <label class="hud-toggle">
-            <input type="checkbox" id="toggleWaveHeader" checked />
-            <span>Show waveform header</span>
-          </label>
-        </div>
-        <div class="hud-row">
-          <label class="hud-toggle">
-            <input type="checkbox" id="toggleFloatStop" />
-            <span>Stop floating</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="waveform-header hidden" id="waveformHeader">Sine</div>
-
-      <div class="panel start-panel hidden" id="controlPanel">
-        <div class="status-row cube-coords-hud" id="cubeCoords">
-          <div class="coord-line">
-            <span>Cube dX:</span>
-            <strong id="cubeCoordX">0</strong>
-          </div>
-          <div class="coord-line">
-            <span>Cube dY:</span>
-            <strong id="cubeCoordY">0</strong>
-          </div>
-          <div class="coord-line">
-            <span>Dist:</span>
-            <strong id="cubeCoordDist">0</strong>
-          </div>
-        </div>
-        <div class="status-row wave-coords-hud hidden" id="waveCoords">
-          <div class="coord-line">
-            <span>Freq:</span>
-            <strong id="waveCoordX">0.00</strong>
-          </div>
-          <div class="coord-line">
-            <span>Amp:</span>
-            <strong id="waveCoordY">0.00</strong>
-          </div>
-        </div>
-        <div class="control-grid">
-          <div class="wasd-grid character-grid" id="wasdGrid">
-            <div class="wasd-card character-card" data-wasd-card data-key="W">
-              <div class="selection-arrow" aria-hidden="true">W</div>
-            </div>
-            <div class="wasd-card character-card" data-wasd-card data-key="A">
-              <div class="selection-arrow" aria-hidden="true">A</div>
-            </div>
-            <div class="wasd-card character-card" data-wasd-card data-key="S">
-              <div class="selection-arrow" aria-hidden="true">S</div>
-            </div>
-            <div class="wasd-card character-card" data-wasd-card data-key="D">
-              <div class="selection-arrow" aria-hidden="true">D</div>
-            </div>
-          </div>
-
-          <div class="direction-grid character-grid" id="directionGrid">
-            <div class="direction-card character-card" data-direction-card data-key="ArrowLeft">
-              <div class="selection-arrow" aria-hidden="true">&larr;</div>
-            </div>
-            <div class="direction-card character-card" data-direction-card data-key="ArrowUp">
-              <div class="selection-arrow" aria-hidden="true">&uarr;</div>
-            </div>
-            <div class="direction-card character-card" data-direction-card data-key="ArrowRight">
-              <div class="selection-arrow" aria-hidden="true">&rarr;</div>
-            </div>
-            <div class="direction-card character-card" data-direction-card data-key="ArrowDown">
-              <div class="selection-arrow" aria-hidden="true">&darr;</div>
-            </div>
-          </div>
+      <div class="scanner-material-key" aria-label="Material key">
+        <div class="scanner-key-title">Materials</div>
+        <button type="button" class="scanner-key-item" data-material="water">
+          <span class="scanner-key-swatch material-water" aria-hidden="true"></span>
+          <span>Water</span>
+          <span class="scanner-key-hint">HOVER</span>
+        </button>
+        <button type="button" class="scanner-key-item" data-material="toxin">
+          <span class="scanner-key-swatch material-toxin" aria-hidden="true"></span>
+          <span>Toxin</span>
+          <span class="scanner-key-hint">HOVER</span>
+        </button>
+        <button type="button" class="scanner-key-item" data-material="waste">
+          <span class="scanner-key-swatch material-waste" aria-hidden="true"></span>
+          <span>Waste</span>
+          <span class="scanner-key-hint">HOVER</span>
+        </button>
+        <div class="scanner-volume-control" aria-label="Audio volume control">
+          <span class="scanner-volume-label">Volume</span>
+          <input
+            type="range"
+            id="volumeKnob"
+            class="scanner-volume-knob"
+            min="0"
+            max="100"
+            value="60"
+            aria-label="Scanner volume"
+          />
         </div>
       </div>
-    </div>
-
+    </main>
     <script src="script.js"></script>
   </body>
 </html>

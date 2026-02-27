@@ -3,26 +3,28 @@
 }
 
 :root {
-  --bg: #1f2f1b;
-  --text: #d8f2a5;
-  --panel-bg: #273a22;
-  --border: #a6c36f;
-  --button-bg: #334d2b;
-  --button-hover: #3f5f36;
-  --button-active: #2b4325;
-  --muted: #bfe290;
-  --log-bg: #22331d;
-  --log-border: #89ab57;
-  --grad-1: #1f2f1b;
-  --grad-2: #334d2b;
-  --grad-3: #6b8f4d;
-  --cube-face: #e6f3d3;
-  --cube-face-back: #142317;
-  --cube-face-right: #ffd98a;
-  --cube-face-left: #9fd6ff;
-  --cube-face-top: #fff1cf;
-  --cube-face-bottom: #1a2a3a;
-  --pulse-color: rgba(255, 224, 154, 0.7);
+  --bg: #1c252b;
+  --text: #f5f0e6;
+  --panel-bg: #25343c;
+  --border: #ffc907;
+  --button-bg: #2d3f49;
+  --button-hover: #35515f;
+  --button-active: #263943;
+  --muted: #d7d2c8;
+  --log-bg: #1f2c33;
+  --log-border: #77a8bb;
+  --grad-1: #182229;
+  --grad-2: #2b3f49;
+  --grad-3: #77a8bb;
+  --cube-face: #f9d958;
+  --cube-face-back: #283037;
+  --cube-face-right: #77a8bb;
+  --cube-face-left: #8ebbc9;
+  --cube-face-top: #fff0b7;
+  --cube-face-bottom: #1b252c;
+  --pulse-color: rgba(255, 201, 7, 0.65);
+  --win-accent: color-mix(in srgb, var(--border) 62%, #a9ef9a);
+  --loss-accent: color-mix(in srgb, var(--border) 35%, #ff9ab0);
 }
 
 body[data-theme="gba-teal"] {
@@ -152,6 +154,189 @@ body {
 
 body.start-cover-active {
   overflow: hidden;
+  --bg: #1a2329;
+  --text: #fbf7ef;
+  --panel-bg: #25343c;
+  --border: #ffc907;
+  --button-bg: #2c414c;
+  --button-hover: #375663;
+  --button-active: #273a45;
+  --muted: #ddd6ca;
+  --log-bg: #1f2e36;
+  --log-border: #77a8bb;
+  --grad-1: #172129;
+  --grad-2: #2a3e48;
+  --grad-3: #77a8bb;
+}
+
+body.start-cover-active .scanner-stage {
+  pointer-events: none;
+}
+
+body:not(.start-cover-active) .game-start-menu {
+  display: none;
+}
+
+.game-start-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 20%, color-mix(in srgb, #ffc907 22%, transparent), transparent 45%),
+    radial-gradient(circle at 82% 18%, color-mix(in srgb, #77a8bb 22%, transparent), transparent 42%),
+    linear-gradient(150deg, #1a242b, #243842, #304850);
+}
+
+.game-start-menu::before,
+.game-start-menu::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+}
+
+.game-start-menu::before {
+  background-image:
+    repeating-linear-gradient(130deg, color-mix(in srgb, #ffc907 20%, transparent) 0, color-mix(in srgb, #ffc907 20%, transparent) 2px, transparent 2px, transparent 20px),
+    repeating-linear-gradient(-130deg, color-mix(in srgb, #1f2b32 38%, transparent) 0, color-mix(in srgb, #1f2b32 38%, transparent) 2px, transparent 2px, transparent 24px);
+  background-size: 170% 170%;
+  opacity: 0.42;
+  animation: waterGeoFlow 30s linear infinite;
+}
+
+.game-start-menu::after {
+  background:
+    radial-gradient(circle at 24% 30%, color-mix(in srgb, #ffc907 22%, transparent) 0, transparent 42%),
+    radial-gradient(circle at 70% 62%, color-mix(in srgb, #77a8bb 20%, transparent) 0, transparent 40%),
+    radial-gradient(circle at 58% 20%, color-mix(in srgb, #f5f0e6 14%, transparent) 0, transparent 35%);
+  opacity: 0.35;
+  animation: waterPulseShift 16s ease-in-out infinite alternate;
+}
+
+.game-start-panel {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ffc907 36%, transparent);
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.game-start-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 3.3vw, 2rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.game-start-title-link {
+  color: color-mix(in srgb, var(--text) 98%, transparent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  padding-bottom: 2px;
+}
+
+.game-start-title-link:hover {
+  color: var(--win-accent);
+  border-bottom-color: color-mix(in srgb, var(--border) 85%, transparent);
+}
+
+.game-start-subtitle {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 94%, transparent);
+}
+
+.game-rules {
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background: color-mix(in srgb, var(--log-bg) 88%, transparent);
+  padding: 10px 12px;
+}
+
+.game-rules h2 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-rules ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.game-rules li {
+  color: color-mix(in srgb, var(--text) 96%, transparent);
+}
+
+.game-rule-emphasis {
+  margin: 10px 0 0 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--text) 98%, transparent);
+}
+
+.game-rule-outcome {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.game-rule-outcome .win-text {
+  color: var(--win-accent);
+}
+
+.game-rule-outcome .loss-text {
+  color: var(--loss-accent);
+}
+
+.rule-divider {
+  color: color-mix(in srgb, var(--text) 55%, transparent);
+  font-weight: 700;
+}
+
+.game-rule-restart {
+  margin-top: 8px;
+}
+
+.game-start-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.game-start-actions button {
+  min-width: 160px;
+  font-size: 0.95rem;
+}
+
+#startMissionButton {
+  min-width: 0;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+#startMissionButton:hover,
+#startMissionButton:active {
+  background: transparent;
+}
+
+.start-mission-logo {
+  width: 130px;
+  max-width: 60vw;
+  height: auto;
+  display: block;
 }
 
 body.start-cover-active .wave-visualizer,
@@ -205,18 +390,21 @@ body:not(.start-cover-active) .start-hint {
 }
 
 .start-menu::before {
-  background: linear-gradient(120deg, var(--grad-1), var(--grad-2), var(--grad-3));
+  background:
+    radial-gradient(circle at 22% 16%, color-mix(in srgb, #ffc907 26%, transparent) 0 14%, transparent 44%),
+    radial-gradient(circle at 76% 24%, color-mix(in srgb, #77a8bb 22%, transparent) 0 10%, transparent 38%),
+    linear-gradient(150deg, #182229, #283a44, #3b525c);
   background-size: 200% 200%;
   animation: startGradientPan 18s ease-in-out infinite alternate;
-  opacity: 0.65;
+  opacity: 0.78;
 }
 
 .start-menu::after {
   background-image:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 2px, transparent 2px, transparent 14px),
-    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.12) 0, rgba(0, 0, 0, 0.12) 2px, transparent 2px, transparent 18px);
+    repeating-linear-gradient(130deg, color-mix(in srgb, #ffc907 14%, transparent) 0, color-mix(in srgb, #ffc907 14%, transparent) 2px, transparent 2px, transparent 16px),
+    repeating-linear-gradient(-130deg, color-mix(in srgb, #1b262d 40%, transparent) 0, color-mix(in srgb, #1b262d 40%, transparent) 2px, transparent 2px, transparent 20px);
   mix-blend-mode: overlay;
-  opacity: 0.4;
+  opacity: 0.5;
   background-size: 180% 180%;
   animation: startGeoDrift 24s linear infinite;
 }
@@ -233,9 +421,9 @@ body:not(.start-cover-active) .start-hint {
   font-size: clamp(2.4rem, 6vw, 5rem);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 70%, transparent);
-  opacity: 0.85;
-  text-shadow: 0 0 18px color-mix(in srgb, var(--text) 35%, transparent);
+  color: color-mix(in srgb, var(--text) 94%, transparent);
+  opacity: 0.92;
+  text-shadow: 0 0 20px color-mix(in srgb, #ffc907 35%, transparent);
 }
 
 .start-hint {
@@ -244,10 +432,29 @@ body:not(.start-cover-active) .start-hint {
   font-size: clamp(0.9rem, 2.2vw, 1.2rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 75%, transparent);
-  opacity: 0.8;
-  text-shadow: 0 0 12px color-mix(in srgb, var(--text) 45%, transparent);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+  opacity: 0.9;
+  text-shadow: 0 0 14px color-mix(in srgb, #77a8bb 45%, transparent);
   animation: hintDrift 12s linear infinite;
+}
+
+body.start-cover-active .start-panel {
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
+  border-color: color-mix(in srgb, var(--border) 85%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ffc907 34%, transparent), 0 14px 28px color-mix(in srgb, #10181d 55%, transparent);
+}
+
+body.start-cover-active .start-panel button {
+  background: color-mix(in srgb, var(--button-bg) 90%, transparent);
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+}
+
+body.start-cover-active .start-panel button:hover {
+  background: color-mix(in srgb, var(--button-hover) 92%, transparent);
+}
+
+body.start-cover-active .start-panel button:active {
+  background: color-mix(in srgb, var(--button-active) 94%, transparent);
 }
 
 .cube-overlay {
@@ -753,6 +960,46 @@ body:not(.start-cover-active) .start-hint {
   }
 }
 
+@keyframes waterGeoFlow {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    background-position: 0% 0%, 0% 0%;
+  }
+  100% {
+    transform: translate3d(-4%, -3%, 0) scale(1.06);
+    background-position: 130% 110%, -120% 95%;
+  }
+}
+
+@keyframes waterGridDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    background-position: 0% 0%, 0% 0%;
+  }
+  50% {
+    transform: translate3d(-2%, -1%, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(3%, 2%, 0) scale(1.07);
+    background-position: 120% 100%, -110% 90%;
+  }
+}
+
+@keyframes waterPulseShift {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translate3d(2%, -2%, 0);
+    opacity: 0.34;
+  }
+  100% {
+    transform: translate3d(-2%, 2%, 0);
+    opacity: 0.24;
+  }
+}
+
 .container {
   max-width: 920px;
   margin: 0 auto;
@@ -847,4 +1094,239 @@ button:active {
 
 .muted {
   color: var(--muted);
+}
+
+.scanner-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--bg);
+}
+
+.scanner-stage::before,
+.scanner-stage::after {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.scanner-stage::before {
+  background-image:
+    repeating-linear-gradient(140deg, color-mix(in srgb, #ffc907 12%, transparent) 0, color-mix(in srgb, #ffc907 12%, transparent) 2px, transparent 2px, transparent 22px),
+    repeating-linear-gradient(-140deg, color-mix(in srgb, #1c2a32 38%, transparent) 0, color-mix(in srgb, #1c2a32 38%, transparent) 2px, transparent 2px, transparent 26px);
+  opacity: 0.28;
+  background-size: 180% 180%;
+  animation: waterGridDrift 40s linear infinite;
+}
+
+.scanner-stage::after {
+  background:
+    radial-gradient(circle at 20% 18%, color-mix(in srgb, #ffc907 16%, transparent) 0, transparent 42%),
+    radial-gradient(circle at 74% 26%, color-mix(in srgb, #77a8bb 18%, transparent) 0, transparent 42%),
+    radial-gradient(circle at 52% 72%, color-mix(in srgb, #f5f0e6 12%, transparent) 0, transparent 38%);
+  opacity: 0.24;
+  animation: waterPulseShift 18s ease-in-out infinite alternate;
+}
+
+.planet-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.scanner-charity-header {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: color-mix(in srgb, var(--text) 96%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  padding: 8px 14px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+.scanner-charity-header:hover {
+  background: color-mix(in srgb, var(--button-hover) 82%, transparent);
+}
+
+.scanner-charity-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.scanner-charity-title {
+  font-size: clamp(1.2rem, 2.6vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.scanner-hud {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 3;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  min-width: 280px;
+}
+
+.scanner-material-key {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 3;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  min-width: 210px;
+}
+
+.scanner-key-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scanner-key-item {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.scanner-key-item[data-active="true"] {
+  border-color: color-mix(in srgb, var(--text) 90%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+.scanner-key-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ffe9a0 40%, transparent);
+}
+
+.material-water {
+  background: #77a8bb;
+}
+
+.material-toxin {
+  background: #2e2e2e;
+}
+
+.material-waste {
+  background: #ffc907;
+}
+
+.scanner-key-hint {
+  color: color-mix(in srgb, var(--text) 90%, transparent);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+.scanner-volume-control {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 55%, transparent);
+  display: grid;
+  gap: 6px;
+}
+
+.scanner-volume-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.scanner-volume-knob {
+  width: 100%;
+  accent-color: color-mix(in srgb, var(--text) 90%, transparent);
+}
+
+.scanner-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scanner-line {
+  color: color-mix(in srgb, var(--text) 94%, transparent);
+  font-size: 0.9rem;
+}
+
+.scanner-readout {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+}
+
+.scanner-status-row {
+  margin-top: 10px;
+}
+
+.scanner-status {
+  display: inline-block;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text) 96%, transparent);
+}
+
+.scanner-status[data-state="won"] {
+  color: #ffd240;
+}
+
+.scanner-status[data-state="lost"] {
+  color: #ff9eb7;
+}
+
+.scanner-actions {
+  margin-top: 4px;
+}
+
+.scanner-actions button {
+  padding: 6px 10px;
+  font-size: 0.84rem;
+}
+
+.scanner-graph {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+#materialReadout,
+#waterScoreReadout,
+#graphWater,
+#graphToxin,
+#graphWaste {
+  color: color-mix(in srgb, var(--text) 98%, transparent);
 }

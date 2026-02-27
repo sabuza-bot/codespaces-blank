@@ -1,764 +1,958 @@
-const startMenuEl = document.getElementById("startMenu");
-const modePanelEl = document.getElementById("modePanel");
-const controlPanelEl = document.getElementById("controlPanel");
-const cubeOverlayEl = document.getElementById("cubeOverlay");
-const cubeBoundaryEl = document.getElementById("cubeBoundary");
-const hudPanelEl = document.getElementById("hudPanel");
-const cubeSceneEl = document.querySelector(".cube-scene");
-const startOnePlayerButton = document.getElementById("startOnePlayer");
-const escapeButton = document.getElementById("escapeButton");
-const startStatusEl = document.getElementById("startStatus");
-const practiceCubeEl = document.getElementById("practiceCube");
-const cubeRotatorEl = document.querySelector(".cube-rotator");
-const cubeHoverRingEl = document.getElementById("cubeHoverRing");
-const waveVisualizerEl = document.getElementById("waveVisualizer");
-const waveformSelectEl = document.getElementById("waveformSelect");
-const synthStatusEl = document.getElementById("synthStatus");
-const waveCoordsEl = document.getElementById("waveCoords");
-const waveCoordXEl = document.getElementById("waveCoordX");
-const waveCoordYEl = document.getElementById("waveCoordY");
-const waveCoordsToggleEl = document.getElementById("toggleWaveCoords");
-const waveHeaderToggleEl = document.getElementById("toggleWaveHeader");
-const floatStopToggleEl = document.getElementById("toggleFloatStop");
-const waveformHeaderEl = document.getElementById("waveformHeader");
-const cubeCoordsEl = document.getElementById("cubeCoords");
-const cubeCoordXEl = document.getElementById("cubeCoordX");
-const cubeCoordYEl = document.getElementById("cubeCoordY");
-const cubeCoordDistEl = document.getElementById("cubeCoordDist");
-const directionCards = Array.from(
-  document.querySelectorAll("[data-direction-card]")
-);
-const wasdCards = Array.from(
-  document.querySelectorAll("[data-wasd-card]")
-);
+const planetCanvas = document.getElementById("planetCanvas");
+const latReadoutEl = document.getElementById("latReadout");
+const lonReadoutEl = document.getElementById("lonReadout");
+const depthReadoutEl = document.getElementById("depthReadout");
+const materialReadoutEl = document.getElementById("materialReadout");
+const waterScoreReadoutEl = document.getElementById("waterScoreReadout");
+const graphWaterEl = document.getElementById("graphWater");
+const graphToxinEl = document.getElementById("graphToxin");
+const graphWasteEl = document.getElementById("graphWaste");
+const contaminationReadoutEl = document.getElementById("contaminationReadout");
+const missionStatusEl = document.getElementById("missionStatus");
+const restartButtonEl = document.getElementById("restartMission");
+const viewRulesButtonEl = document.getElementById("viewRulesButton");
+const volumeKnobEl = document.getElementById("volumeKnob");
+const materialKeyButtons = Array.from(document.querySelectorAll(".scanner-key-item"));
+const gameStartMenuEl = document.getElementById("gameStartMenu");
+const startMissionButtonEl = document.getElementById("startMissionButton");
 
-const directionMap = {
-  ArrowLeft: { name: "Left" },
-  ArrowUp: { name: "Up" },
-  ArrowDown: { name: "Down" },
-  ArrowRight: { name: "Right" },
+if (!planetCanvas) {
+  throw new Error("Missing #planetCanvas element.");
+}
+
+const ctx = planetCanvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Could not acquire 2D context.");
+}
+
+const SOURCE_COUNT = 50;
+const WATER_COUNT = 12;
+const TOXIN_COUNT = 19;
+const WASTE_COUNT = 19;
+const WATER_TARGET_SCORE = 320;
+const CONTAMINATION_LIMIT = 100;
+const WATER_RATE = 28;
+const TOXIN_RATE = 23;
+const WASTE_RATE = 15;
+const SCAN_SIZE_SCALE = 1.5;
+
+const MATERIAL_CONFIG = {
+  water: {
+    label: "Water",
+    color: "#77a8bb",
+    waveform: "sine",
+    beepBaseFrequency: 320,
+    beepFrequencyRange: 340,
+    beepMinInterval: 0.09,
+    beepMaxInterval: 0.48,
+    beepGain: 0.03,
+  },
+  toxin: {
+    label: "Toxin",
+    color: "#2e2e2e",
+    waveform: "triangle",
+    beepBaseFrequency: 190,
+    beepFrequencyRange: 260,
+    beepMinInterval: 0.08,
+    beepMaxInterval: 0.44,
+    beepGain: 0.022,
+  },
+  waste: {
+    label: "Waste",
+    color: "#ffc907",
+    waveform: "triangle",
+    beepBaseFrequency: 150,
+    beepFrequencyRange: 220,
+    beepMinInterval: 0.08,
+    beepMaxInterval: 0.42,
+    beepGain: 0.02,
+  },
 };
 
-const waveformCycle = ["sine", "square", "triangle", "sawtooth"];
-
-const waveformThemeMap = {
-  sine: null,
-  square: "synth-red",
-  triangle: "synth-blue",
-  sawtooth: "synth-yellow",
+const scannerState = {
+  width: 1,
+  height: 1,
+  centerX: 0,
+  centerY: 0,
+  radius: 160,
+  baseRadius: 160,
+  zoom: 1,
+  rotationLon: 0,
+  rotationLat: 0,
+  drift: 0,
+  pointerX: 0,
+  pointerY: 0,
+  pointerInside: false,
+  dragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStartLon: 0,
+  dragStartLat: 0,
+  markerX: 0,
+  markerY: 0,
+  markerVisible: false,
+  sources: [],
+  projectedSources: [],
+  activeSources: [],
+  hoveredSourceId: null,
+  waterScore: 0,
+  contaminationScore: 0,
+  missionState: "running",
+  missionMessage: "Collect water and avoid contamination.",
+  discovered: {
+    water: 0,
+    toxin: 0,
+    waste: 0,
+  },
+  totalByType: {
+    water: WATER_COUNT,
+    toxin: TOXIN_COUNT,
+    waste: WASTE_COUNT,
+  },
+  lastFrameTime: 0,
 };
 
-let activeDirectionKey = null;
-const activeWasdKeys = new Set();
-let audioContext = null;
-let synthOscillator = null;
-let synthGainNode = null;
-let synthIsStarting = false;
-let waveVisualizerContext = null;
-let waveVisualizerAnimationId = null;
-let wavePhaseOffset = 0;
-let activeWaveform = "sine";
-let currentSpinSeconds = 9;
-let targetSpinSeconds = 9;
-let wasdMoveAnimationId = null;
-const SAFE_MAX_GAIN = 0.04;
-const CAPPED_MAX_GAIN = SAFE_MAX_GAIN * 0.95;
-const EDGE_GAIN_FACTOR = 0.4;
-const MIN_FREQUENCY = 80;
-const MAX_FREQUENCY = 1200;
-const FREQUENCY_STEP = 12;
-const MIN_AMPLITUDE = 0.2;
-const MAX_AMPLITUDE = 1;
-const AMPLITUDE_STEP = 0.05;
-let currentFrequency = 220;
-let amplitudeLevel = 0.35;
-const MIN_CUBE_SPIN_SECONDS = 0.9;
-const MAX_CUBE_SPIN_SECONDS = 18;
-const MIN_CUBE_SIZE = 40;
-const MAX_CUBE_SIZE = 216;
-const MAX_CUBE_OFFSET_X = 440;
-const MAX_CUBE_OFFSET_UP = 300;
-const MAX_CUBE_OFFSET_DOWN = 360;
-const WASD_ACCELERATION = 1.35;
-const WASD_MAX_SPEED = 12;
-const WASD_FRICTION = 0.86;
-let cubeOffsetX = 0;
-let cubeOffsetY = 240;
-let cubeVelocityX = 0;
-let cubeVelocityY = 0;
-let cubeCollisionTimeoutId = null;
-const EDGE_CLASS_NAMES = ["edge-left", "edge-right", "edge-top", "edge-bottom"];
-let showWaveCoords = true;
-let showWaveHeader = true;
-let isFloatStopped = false;
+const audioState = {
+  context: null,
+  masterGain: null,
+  currentMaterial: null,
+  nextBeepAt: 0,
+  sourceBeepSchedule: new Map(),
+  manualPreviewMaterial: null,
+  manualPreviewNextBeepAt: 0,
+  volume: 0.6,
+};
 
-function syncCubeVisualFromControls() {
-  const frequencyRange = MAX_FREQUENCY - MIN_FREQUENCY;
-  const frequencyRatio = frequencyRange > 0
-    ? (currentFrequency - MIN_FREQUENCY) / frequencyRange
-    : 0;
-  const clampedFrequencyRatio = Math.max(0, Math.min(1, frequencyRatio));
-  const acceleratedRatio = Math.pow(clampedFrequencyRatio, 1.35);
-  const spinSeconds =
-    MAX_CUBE_SPIN_SECONDS -
-    acceleratedRatio * (MAX_CUBE_SPIN_SECONDS - MIN_CUBE_SPIN_SECONDS);
-  targetSpinSeconds = spinSeconds;
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
-  const amplitudeRange = MAX_AMPLITUDE - MIN_AMPLITUDE;
-  const amplitudeRatio = amplitudeRange > 0
-    ? (amplitudeLevel - MIN_AMPLITUDE) / amplitudeRange
-    : 0;
-  const clampedAmplitudeRatio = Math.max(0, Math.min(1, amplitudeRatio));
-  const nextCubeSize =
-    MIN_CUBE_SIZE + clampedAmplitudeRatio * (MAX_CUBE_SIZE - MIN_CUBE_SIZE);
+function randomRange(min, max) {
+  return min + Math.random() * (max - min);
+}
 
-  if (practiceCubeEl) {
-    practiceCubeEl.style.setProperty("--cube-size", `${nextCubeSize.toFixed(1)}px`);
+function shuffle(array) {
+  for (let index = array.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const temp = array[index];
+    array[index] = array[swapIndex];
+    array[swapIndex] = temp;
   }
 }
 
-function syncCubeOverlayPosition() {
-  if (!cubeOverlayEl) return;
+function generateMaterialSources() {
+  const types = [
+    ...Array(WATER_COUNT).fill("water"),
+    ...Array(TOXIN_COUNT).fill("toxin"),
+    ...Array(WASTE_COUNT).fill("waste"),
+  ];
+  shuffle(types);
 
-  const previousX = cubeOffsetX;
-  const previousY = cubeOffsetY;
-  const clampedX = Math.max(-MAX_CUBE_OFFSET_X, Math.min(MAX_CUBE_OFFSET_X, cubeOffsetX));
-  const clampedY = Math.max(-MAX_CUBE_OFFSET_UP, Math.min(MAX_CUBE_OFFSET_DOWN, cubeOffsetY));
-  cubeOffsetX = clampedX;
-  cubeOffsetY = clampedY;
-  cubeOverlayEl.style.setProperty("--cube-offset-x", `${cubeOffsetX}px`);
-  cubeOverlayEl.style.setProperty("--cube-offset-y", `${cubeOffsetY}px`);
+  scannerState.sources = Array.from({ length: SOURCE_COUNT }, (_, index) => {
+    const type = types[index];
+    const lon = randomRange(-Math.PI, Math.PI);
+    const lat = Math.asin(randomRange(-1, 1));
 
-  const hitLeft = previousX < -MAX_CUBE_OFFSET_X;
-  const hitRight = previousX > MAX_CUBE_OFFSET_X;
-  const hitTop = previousY < -MAX_CUBE_OFFSET_UP;
-  const hitBottom = previousY > MAX_CUBE_OFFSET_DOWN;
-  const hitBoundary = hitLeft || hitRight || hitTop || hitBottom;
-
-  if (!cubeBoundaryEl) return;
-  if (!hitBoundary) return;
-
-  cubeBoundaryEl.classList.remove(...EDGE_CLASS_NAMES);
-  if (hitLeft) cubeBoundaryEl.classList.add("edge-left");
-  if (hitRight) cubeBoundaryEl.classList.add("edge-right");
-  if (hitTop) cubeBoundaryEl.classList.add("edge-top");
-  if (hitBottom) cubeBoundaryEl.classList.add("edge-bottom");
-
-  if (cubeCollisionTimeoutId) {
-    window.clearTimeout(cubeCollisionTimeoutId);
-  }
-  cubeCollisionTimeoutId = window.setTimeout(() => {
-    cubeBoundaryEl.classList.remove(...EDGE_CLASS_NAMES);
-    cubeCollisionTimeoutId = null;
-  }, 180);
+    return {
+      id: index,
+      type,
+      lon,
+      lat,
+      detectRadiusRatio: randomRange(0.55, 0.85),
+      discovered: false,
+      selected: false,
+    };
+  });
 }
 
-function setCubeBoundaryVars() {
-  if (!cubeBoundaryEl) return;
-
-  cubeBoundaryEl.style.setProperty(
-    "--cube-boundary-width",
-    `${MAX_CUBE_OFFSET_X * 2}px`
-  );
-  cubeBoundaryEl.style.setProperty(
-    "--cube-boundary-height",
-    `${MAX_CUBE_OFFSET_UP + MAX_CUBE_OFFSET_DOWN}px`
-  );
+function resetMission() {
+  scannerState.waterScore = 0;
+  scannerState.contaminationScore = 0;
+  scannerState.hoveredSourceId = null;
+  scannerState.markerVisible = false;
+  scannerState.dragging = false;
+  scannerState.missionState = "running";
+  scannerState.missionMessage = "Collect water and avoid contamination.";
+  scannerState.discovered.water = 0;
+  scannerState.discovered.toxin = 0;
+  scannerState.discovered.waste = 0;
+  scannerState.activeSources = [];
+  generateMaterialSources();
+  stopMaterialTone();
 }
 
-function getHoverGainFromDistance(distance, radius) {
-  const normalizedDistance = Math.min(distance, radius) / radius;
-  const proximity = 1 - normalizedDistance;
-  const gainFactor = EDGE_GAIN_FACTOR + (1 - EDGE_GAIN_FACTOR) * proximity;
-  return CAPPED_MAX_GAIN * gainFactor * amplitudeLevel;
-}
+function finalizeMission(nextState) {
+  if (scannerState.missionState !== "running") return;
 
-function updateSynthFromCubePosition() {
-  if (!cubeHoverRingEl || !practiceCubeEl) return;
+  scannerState.missionState = nextState;
+  scannerState.dragging = false;
+  stopMaterialTone();
 
-  const ringRect = cubeHoverRingEl.getBoundingClientRect();
-  const cubeRect = practiceCubeEl.getBoundingClientRect();
-  const centerX = ringRect.left + ringRect.width / 2;
-  const centerY = ringRect.top + ringRect.height / 2;
-  const cubeCenterX = cubeRect.left + cubeRect.width / 2;
-  const cubeCenterY = cubeRect.top + cubeRect.height / 2;
-  const distance = Math.hypot(cubeCenterX - centerX, cubeCenterY - centerY);
-  const radius = Math.min(ringRect.width, ringRect.height) / 2;
-  updateCubeCoords(cubeCenterX - centerX, cubeCenterY - centerY, distance);
-
-  if (distance <= radius) {
-    cubeHoverRingEl.classList.add("pulsing");
-    startSynth()
-      .then(() => {
-        if (!audioContext || !synthGainNode) return;
-        const nextGain = getHoverGainFromDistance(distance, radius);
-        synthGainNode.gain.setTargetAtTime(nextGain, audioContext.currentTime, 0.02);
-      })
-      .catch(() => {
-        setSynthStatus("Could not start synth audio.");
-      });
+  if (nextState === "won") {
+    scannerState.missionMessage = "Mission success: Water target reached.";
     return;
   }
 
-  cubeHoverRingEl.classList.remove("pulsing");
-  if (isSynthRunning()) {
-    stopSynth();
-  }
+  scannerState.missionMessage = "Mission failed: Contamination threshold exceeded.";
 }
 
-function updateCubeCoords(deltaX, deltaY, distance) {
-  if (!cubeCoordsEl || !cubeCoordXEl || !cubeCoordYEl || !cubeCoordDistEl) return;
-
-  cubeCoordXEl.textContent = Math.round(deltaX).toString();
-  cubeCoordYEl.textContent = Math.round(deltaY).toString();
-  cubeCoordDistEl.textContent = Math.round(distance).toString();
-}
-
-function sampleWave(waveform, phase) {
-  if (waveform === "square") {
-    return Math.sign(Math.sin(phase)) || 1;
-  }
-
-  if (waveform === "triangle") {
-    return (2 / Math.PI) * Math.asin(Math.sin(phase));
-  }
-
-  if (waveform === "sawtooth") {
-    const wrapped = phase / (2 * Math.PI);
-    return 2 * (wrapped - Math.floor(wrapped + 0.5));
-  }
-
-  return Math.sin(phase);
-}
-
-function resizeWaveVisualizer() {
-  if (!waveVisualizerEl) return;
-
-  const ratio = window.devicePixelRatio || 1;
-  const width = Math.max(1, Math.floor(window.innerWidth));
-  const height = Math.max(1, Math.floor(window.innerHeight));
-
-  waveVisualizerEl.width = Math.floor(width * ratio);
-  waveVisualizerEl.height = Math.floor(height * ratio);
-  waveVisualizerEl.style.width = `${width}px`;
-  waveVisualizerEl.style.height = `${height}px`;
-
-  if (waveVisualizerContext) {
-    waveVisualizerContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-  }
-
-  updateSynthFromCubePosition();
-}
-
-function drawWaveVisualizer() {
-  if (!waveVisualizerContext || !waveVisualizerEl) return;
-
-  const width = waveVisualizerEl.clientWidth;
-  const height = waveVisualizerEl.clientHeight;
-  const centerY = height / 2;
-  const waveform = getSelectedWaveform();
-  const computed = getComputedStyle(document.body);
-  const stroke = computed.getPropertyValue("--text").trim() || "#d8f2a5";
-
-  waveVisualizerContext.clearRect(0, 0, width, height);
-  waveVisualizerContext.strokeStyle = stroke;
-  waveVisualizerContext.lineWidth = 2;
-  waveVisualizerContext.globalAlpha = 0.65;
-  waveVisualizerContext.beginPath();
-
-  const points = 180;
-  const cycles = Math.max(1, Math.min(10, currentFrequency / 120));
-  const amplitudePixels = Math.max(14, height * 0.16 * amplitudeLevel);
-  if (showWaveCoords) {
-    updateWaveCoords();
-  }
-
-  for (let index = 0; index <= points; index += 1) {
-    const t = index / points;
-    const x = t * width;
-    const phase = t * cycles * Math.PI * 2 + wavePhaseOffset;
-    const y = centerY + sampleWave(waveform, phase) * amplitudePixels;
-
-    if (index === 0) {
-      waveVisualizerContext.moveTo(x, y);
-    } else {
-      waveVisualizerContext.lineTo(x, y);
-    }
-  }
-
-  waveVisualizerContext.stroke();
-  waveVisualizerContext.globalAlpha = 1;
-}
-
-function updateWaveCoords() {
-  if (!waveCoordsEl || !waveCoordXEl || !waveCoordYEl) return;
-
-  waveCoordXEl.textContent = `${currentFrequency.toFixed(0)} Hz`;
-  waveCoordYEl.textContent = `${Math.round(amplitudeLevel * 100)}%`;
-}
-
-function animateWaveVisualizer() {
-  wavePhaseOffset += (currentFrequency / 1000) * 0.22;
-  if (cubeRotatorEl) {
-    const delta = targetSpinSeconds - currentSpinSeconds;
-    currentSpinSeconds += delta * 0.08;
-    if (currentSpinSeconds < targetSpinSeconds) {
-      currentSpinSeconds = targetSpinSeconds;
-    }
-    cubeRotatorEl.style.animationDuration = `${currentSpinSeconds.toFixed(2)}s`;
-  }
-  updateSynthFromCubePosition();
-  drawWaveVisualizer();
-  waveVisualizerAnimationId = window.requestAnimationFrame(animateWaveVisualizer);
-}
-
-function initializeWaveVisualizer() {
-  if (!waveVisualizerEl) return;
-
-  waveVisualizerContext = waveVisualizerEl.getContext("2d");
-  if (!waveVisualizerContext) return;
-
-  resizeWaveVisualizer();
-  drawWaveVisualizer();
-
-  if (waveVisualizerAnimationId) {
-    window.cancelAnimationFrame(waveVisualizerAnimationId);
-  }
-
-  waveVisualizerAnimationId = window.requestAnimationFrame(animateWaveVisualizer);
-  window.addEventListener("resize", resizeWaveVisualizer);
-}
-
-function edgeGain() {
-  return CAPPED_MAX_GAIN * EDGE_GAIN_FACTOR * amplitudeLevel;
-}
-
-function isSynthRunning() {
-  return Boolean(synthOscillator) || synthIsStarting;
-}
-
-function getSelectedWaveform() {
-  return activeWaveform;
-}
-
-function applyThemeForWaveform(waveform) {
-  const theme = waveformThemeMap[waveform] ?? null;
-  if (!theme) {
-    document.body.removeAttribute("data-theme");
+function evaluateMissionState() {
+  if (scannerState.missionState !== "running") return;
+  if (scannerState.waterScore >= WATER_TARGET_SCORE) {
+    finalizeMission("won");
     return;
   }
-
-  document.body.setAttribute("data-theme", theme);
-}
-
-function setWaveformMode(nextWaveform) {
-  activeWaveform = nextWaveform;
-
-  if (waveformSelectEl) {
-    waveformSelectEl.value = nextWaveform;
+  if (scannerState.contaminationScore >= CONTAMINATION_LIMIT) {
+    finalizeMission("lost");
   }
-
-  if (synthOscillator) {
-    synthOscillator.type = nextWaveform;
-  }
-
-  applyThemeForWaveform(nextWaveform);
-
-  if (waveformHeaderEl) {
-    const label = nextWaveform.charAt(0).toUpperCase() + nextWaveform.slice(1);
-    waveformHeaderEl.textContent = label;
-  }
-
-  if (isSynthRunning()) {
-    setSynthStatus(`Synth running: ${nextWaveform}`);
-  }
-}
-
-function setWaveCoordsVisible(isVisible) {
-  showWaveCoords = isVisible;
-  if (!waveCoordsEl) return;
-  waveCoordsEl.classList.toggle("hidden", !isVisible);
-}
-
-function setWaveHeaderVisible(isVisible) {
-  showWaveHeader = isVisible;
-  if (!waveformHeaderEl) return;
-  waveformHeaderEl.classList.toggle("hidden", !isVisible);
-}
-
-function setFloatStopped(isStopped) {
-  isFloatStopped = isStopped;
-  if (!cubeOverlayEl) return;
-  cubeOverlayEl.classList.toggle("no-float", isStopped);
-}
-
-function cycleWaveformMode() {
-  const currentWaveform = getSelectedWaveform();
-  const currentIndex = waveformCycle.indexOf(currentWaveform);
-  const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % waveformCycle.length;
-  const nextWaveform = waveformCycle[nextIndex];
-  setWaveformMode(nextWaveform);
-}
-
-function setSynthStatus(text) {
-  if (!synthStatusEl) return;
-
-  synthStatusEl.textContent = text;
 }
 
 function ensureAudioContext() {
-  if (audioContext) return audioContext;
-
   const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextConstructor) {
-    setSynthStatus("Web Audio is not supported in this browser.");
-    return null;
+  if (!audioState.context) {
+    if (!AudioContextConstructor) return null;
+    audioState.context = new AudioContextConstructor();
   }
 
-  audioContext = new AudioContextConstructor();
-  return audioContext;
+  if (!audioState.masterGain) {
+    const masterGain = audioState.context.createGain();
+    masterGain.gain.setValueAtTime(audioState.volume, audioState.context.currentTime);
+    masterGain.connect(audioState.context.destination);
+    audioState.masterGain = masterGain;
+  }
+
+  return audioState.context;
 }
 
-async function startSynth() {
-  if (synthIsStarting) return;
+function setMasterVolume(nextVolume) {
+  const clamped = clamp(nextVolume, 0, 1);
+  audioState.volume = clamped;
 
-  synthIsStarting = true;
-  try {
-    const context = ensureAudioContext();
-    if (!context) return;
+  if (!audioState.context || !audioState.masterGain) return;
+  audioState.masterGain.gain.setValueAtTime(clamped, audioState.context.currentTime);
+}
 
-    if (context.state === "suspended") {
-      await context.resume();
-    }
-
-    if (synthOscillator) {
-      synthOscillator.type = getSelectedWaveform();
-      synthOscillator.frequency.setTargetAtTime(currentFrequency, context.currentTime, 0.02);
-      setSynthStatus(`Synth running: ${getSelectedWaveform()}`);
-      return;
-    }
-
-    synthGainNode = context.createGain();
-    synthGainNode.gain.setValueAtTime(0.0001, context.currentTime);
-    synthGainNode.gain.exponentialRampToValueAtTime(edgeGain(), context.currentTime + 0.03);
-
-    synthOscillator = context.createOscillator();
-    synthOscillator.type = getSelectedWaveform();
-    synthOscillator.frequency.setValueAtTime(currentFrequency, context.currentTime);
-    synthOscillator.connect(synthGainNode);
-    synthGainNode.connect(context.destination);
-    synthOscillator.start();
-
-    setSynthStatus(`Synth running: ${getSelectedWaveform()} (${Math.round(EDGE_GAIN_FACTOR * 100)}%)`);
-  } finally {
-    synthIsStarting = false;
+async function unlockAudioContext() {
+  const context = ensureAudioContext();
+  if (!context) return;
+  if (context.state === "suspended") {
+    await context.resume();
   }
 }
 
-function stopSynth() {
-  synthIsStarting = false;
+function playMaterialBeep(material, proximity, gainScale = 1) {
+  const context = ensureAudioContext();
+  if (!context) return;
 
-  if (!audioContext || !synthOscillator || !synthGainNode) {
-    setSynthStatus("Synth is off. Hover the cube to play.");
+  if (context.state === "suspended") {
     return;
   }
 
-  const stopAt = audioContext.currentTime + 0.04;
-  synthGainNode.gain.cancelScheduledValues(audioContext.currentTime);
-  synthGainNode.gain.setValueAtTime(Math.max(synthGainNode.gain.value, 0.0001), audioContext.currentTime);
-  synthGainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+  const config = MATERIAL_CONFIG[material];
+  if (!config) return;
 
-  synthOscillator.stop(stopAt + 0.01);
-  synthOscillator.onended = () => {
-    if (synthOscillator) {
-      synthOscillator.disconnect();
-    }
-    if (synthGainNode) {
-      synthGainNode.disconnect();
-    }
-    synthOscillator = null;
-    synthGainNode = null;
+  const clampedProximity = clamp(proximity, 0, 1);
+  const frequency =
+    config.beepBaseFrequency + config.beepFrequencyRange * Math.pow(clampedProximity, 1.1);
+  const gainValue = config.beepGain * gainScale;
+
+  const oscillator = context.createOscillator();
+  oscillator.type = config.waveform;
+  oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+
+  const gainNode = context.createGain();
+  gainNode.gain.setValueAtTime(0.0001, context.currentTime);
+  gainNode.gain.linearRampToValueAtTime(gainValue, context.currentTime + 0.008);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.1);
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioState.masterGain || context.destination);
+  oscillator.start(context.currentTime);
+  oscillator.stop(context.currentTime + 0.11);
+  oscillator.onended = () => {
+    oscillator.disconnect();
+    gainNode.disconnect();
   };
 
-  setSynthStatus("Synth is off. Hover the cube to play.");
+  audioState.currentMaterial = material;
 }
 
-function getHoverGainFromPointer(event) {
-  if (!cubeHoverRingEl) return edgeGain();
+function stopMaterialTone() {
+  audioState.currentMaterial = null;
+  audioState.nextBeepAt = 0;
+  audioState.sourceBeepSchedule.clear();
+}
 
-  const rect = cubeHoverRingEl.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const dx = event.clientX - centerX;
-  const dy = event.clientY - centerY;
+function updateMaterialKeyButtons() {
+  for (const button of materialKeyButtons) {
+    const material = button.dataset.material;
+    const isActive = audioState.manualPreviewMaterial === material;
+    button.dataset.active = isActive ? "true" : "false";
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  }
+}
+
+function setMaterialPreview(material) {
+  if (!MATERIAL_CONFIG[material]) return;
+
+  audioState.manualPreviewMaterial = material;
+  audioState.manualPreviewNextBeepAt = 0;
+  stopMaterialTone();
+  updateMaterialKeyButtons();
+}
+
+function clearMaterialPreview(material) {
+  if (audioState.manualPreviewMaterial !== material) return;
+  audioState.manualPreviewMaterial = null;
+  audioState.manualPreviewNextBeepAt = 0;
+  updateMaterialKeyButtons();
+}
+
+function startMissionFromMenu() {
+  if (!document.body.classList.contains("start-cover-active")) return;
+  document.body.classList.remove("start-cover-active");
+  if (gameStartMenuEl) {
+    gameStartMenuEl.setAttribute("aria-hidden", "true");
+  }
+}
+
+function openRulesMenu() {
+  document.body.classList.add("start-cover-active");
+  scannerState.dragging = false;
+  if (gameStartMenuEl) {
+    gameStartMenuEl.setAttribute("aria-hidden", "false");
+  }
+  if (startMissionButtonEl) {
+    startMissionButtonEl.setAttribute("aria-label", "Resume Mission");
+  }
+}
+
+function resizeCanvas() {
+  const ratio = window.devicePixelRatio || 1;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  planetCanvas.width = Math.floor(width * ratio);
+  planetCanvas.height = Math.floor(height * ratio);
+  planetCanvas.style.width = `${width}px`;
+  planetCanvas.style.height = `${height}px`;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+  scannerState.width = width;
+  scannerState.height = height;
+  scannerState.centerX = width * 0.5;
+  scannerState.centerY = height * 0.52;
+  scannerState.baseRadius = Math.max(120, Math.min(width, height) * 0.22) * SCAN_SIZE_SCALE;
+  scannerState.radius = scannerState.baseRadius * scannerState.zoom;
+}
+
+function projectSource(source) {
+  const cosLat = Math.cos(source.lat);
+  const x = cosLat * Math.cos(source.lon);
+  const y = Math.sin(source.lat);
+  const z = cosLat * Math.sin(source.lon);
+
+  const cosLonRot = Math.cos(scannerState.rotationLon);
+  const sinLonRot = Math.sin(scannerState.rotationLon);
+  const x1 = x * cosLonRot + z * sinLonRot;
+  const z1 = -x * sinLonRot + z * cosLonRot;
+
+  const cosLatRot = Math.cos(scannerState.rotationLat);
+  const sinLatRot = Math.sin(scannerState.rotationLat);
+  const y2 = y * cosLatRot - z1 * sinLatRot;
+  const z2 = y * sinLatRot + z1 * cosLatRot;
+
+  const xScreen = scannerState.centerX + x1 * scannerState.radius;
+  const yScreen = scannerState.centerY - y2 * scannerState.radius;
+  const perspective = 0.58 + Math.max(0, z2) * 0.42;
+
+  return {
+    id: source.id,
+    type: source.type,
+    x: xScreen,
+    y: yScreen,
+    z: z2,
+    visible: z2 >= 0,
+    detectRadius: scannerState.radius * source.detectRadiusRatio * perspective * SCAN_SIZE_SCALE,
+    discovered: source.discovered,
+  };
+}
+
+function updateProjectedSources() {
+  scannerState.projectedSources = scannerState.sources.map(projectSource);
+}
+
+function getActiveSources() {
+  if (!scannerState.pointerInside) return null;
+
+  const activeSources = [];
+  for (const source of scannerState.projectedSources) {
+    if (!source.visible) continue;
+
+    const dx = scannerState.pointerX - source.x;
+    const dy = scannerState.pointerY - source.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance > source.detectRadius) continue;
+
+    activeSources.push({
+      ...source,
+      distance,
+      proximity: clamp(1 - distance / source.detectRadius, 0, 1),
+    });
+  }
+
+  activeSources.sort((a, b) => a.distance - b.distance);
+  return activeSources;
+}
+
+function updateHoveredSource() {
+  const activeSources = getActiveSources() || [];
+  scannerState.activeSources = activeSources;
+
+  const hovered = activeSources[0] ?? null;
+  scannerState.hoveredSourceId = hovered ? hovered.id : null;
+  if (!hovered) return null;
+
+  return hovered;
+}
+
+function drawBackground() {
+  const gradient = ctx.createRadialGradient(
+    scannerState.width * 0.5,
+    scannerState.height * 0.3,
+    scannerState.radius * 0.2,
+    scannerState.width * 0.5,
+    scannerState.height * 0.52,
+    scannerState.width * 0.7
+  );
+  gradient.addColorStop(0, "rgba(94, 219, 239, 0.14)");
+  gradient.addColorStop(1, "rgba(4, 19, 28, 0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, scannerState.width, scannerState.height);
+}
+
+function drawPlanet() {
+  const { centerX, centerY, radius } = scannerState;
+
+  const planetFill = ctx.createRadialGradient(
+    centerX - radius * 0.28,
+    centerY - radius * 0.35,
+    radius * 0.15,
+    centerX,
+    centerY,
+    radius * 1.15
+  );
+  planetFill.addColorStop(0, "#8df3ff");
+  planetFill.addColorStop(0.45, "#2ba9bf");
+  planetFill.addColorStop(1, "#0c4253");
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = planetFill;
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.clip();
+
+  const bands = 11;
+  for (let index = 0; index < bands; index += 1) {
+    const t = index / (bands - 1);
+    const y = centerY - radius + t * radius * 2;
+    const latFactor = Math.cos(t * Math.PI - Math.PI / 2);
+    const halfWidth = radius * Math.max(0.08, Math.abs(latFactor));
+    const wobble = Math.sin(scannerState.drift * 0.55 + index * 0.8 + scannerState.rotationLat) * 8;
+
+    ctx.beginPath();
+    ctx.ellipse(
+      centerX + Math.sin(scannerState.rotationLon + index * 0.3) * 10,
+      y + wobble,
+      halfWidth,
+      Math.max(2, radius * 0.014),
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.strokeStyle = "rgba(218, 250, 255, 0.24)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  const meridians = 12;
+  for (let index = 0; index < meridians; index += 1) {
+    const p = index / meridians;
+    const phase = p * Math.PI * 2 + scannerState.rotationLon;
+    const xRadius = Math.max(4, Math.abs(Math.cos(phase)) * radius);
+    const alpha = 0.1 + Math.abs(Math.cos(phase)) * 0.18;
+
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, xRadius, radius, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(220, 252, 255, ${alpha.toFixed(3)})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  const rim = ctx.createRadialGradient(
+    centerX,
+    centerY,
+    radius * 0.65,
+    centerX,
+    centerY,
+    radius * 1.06
+  );
+  rim.addColorStop(0, "rgba(0, 0, 0, 0)");
+  rim.addColorStop(1, "rgba(1, 18, 24, 0.5)");
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = rim;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(159, 241, 255, 0.45)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function drawMaterialSources() {
+  const hoverId = scannerState.hoveredSourceId;
+  for (const source of scannerState.projectedSources) {
+    if (!source.visible) continue;
+
+    const model = scannerState.sources[source.id];
+    const isHovered = source.id === hoverId;
+    const isSelected = Boolean(model && model.selected);
+    const config = MATERIAL_CONFIG[source.type];
+
+    const baseColor = isSelected && config ? config.color : "#81d8ff";
+    const alpha = isHovered ? 0.95 : isSelected ? 0.8 : 0.42;
+    const dotRadius = Math.max(2.4, scannerState.radius * 0.02 * SCAN_SIZE_SCALE);
+
+    ctx.beginPath();
+    ctx.arc(source.x, source.y, dotRadius, 0, Math.PI * 2);
+    if (!baseColor.startsWith("rgba")) {
+      ctx.fillStyle = `rgba(${hexToRgb(baseColor)}, ${alpha.toFixed(3)})`;
+    } else {
+      ctx.fillStyle = baseColor;
+    }
+    ctx.fill();
+  }
+}
+
+function drawScanReticle() {
+  if (!scannerState.pointerInside) return;
+
+  const dx = scannerState.pointerX - scannerState.centerX;
+  const dy = scannerState.pointerY - scannerState.centerY;
   const distance = Math.hypot(dx, dy);
-  const radius = Math.min(rect.width, rect.height) / 2;
-  const normalizedDistance = Math.min(distance, radius) / radius;
-  const proximity = 1 - normalizedDistance;
-  const gainFactor = EDGE_GAIN_FACTOR + (1 - EDGE_GAIN_FACTOR) * proximity;
-  return CAPPED_MAX_GAIN * gainFactor * amplitudeLevel;
+  if (distance > scannerState.radius) return;
+
+  const pulse = 0.65 + (Math.sin(scannerState.drift * 4.4) + 1) * 0.15;
+  const ringRadius = scannerState.radius * 0.11;
+
+  ctx.beginPath();
+  ctx.arc(scannerState.pointerX, scannerState.pointerY, ringRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(203, 249, 255, ${pulse.toFixed(3)})`;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(scannerState.pointerX - ringRadius * 1.5, scannerState.pointerY);
+  ctx.lineTo(scannerState.pointerX + ringRadius * 1.5, scannerState.pointerY);
+  ctx.moveTo(scannerState.pointerX, scannerState.pointerY - ringRadius * 1.5);
+  ctx.lineTo(scannerState.pointerX, scannerState.pointerY + ringRadius * 1.5);
+  ctx.strokeStyle = "rgba(185, 244, 255, 0.46)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
-function updateSynthGainFromPointer(event) {
-  if (!audioContext || !synthGainNode) return;
-
-  const nextGain = getHoverGainFromPointer(event);
-  synthGainNode.gain.setTargetAtTime(nextGain, audioContext.currentTime, 0.018);
-  const percentOfCappedMax = Math.round((nextGain / CAPPED_MAX_GAIN) * 100);
-  setSynthStatus(`Synth running: ${getSelectedWaveform()} (${percentOfCappedMax}%)`);
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  const full = normalized.length === 3
+    ? normalized.split("").map((value) => `${value}${value}`).join("")
+    : normalized;
+  const red = parseInt(full.slice(0, 2), 16);
+  const green = parseInt(full.slice(2, 4), 16);
+  const blue = parseInt(full.slice(4, 6), 16);
+  return `${red}, ${green}, ${blue}`;
 }
 
-function adjustFrequency(delta) {
-  currentFrequency = Math.max(
-    MIN_FREQUENCY,
-    Math.min(MAX_FREQUENCY, currentFrequency + delta)
-  );
+function drawScanMarker() {
+  if (!scannerState.markerVisible) return;
 
-  syncCubeVisualFromControls();
-  updateSynthFromCubePosition();
+  const pulse = 0.5 + (Math.sin(scannerState.drift * 3.2) + 1) * 0.2;
+  const radius = scannerState.radius * 0.07;
 
-  if (!audioContext || !synthOscillator) return;
+  ctx.beginPath();
+  ctx.arc(scannerState.markerX, scannerState.markerY, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(144, 240, 255, ${pulse.toFixed(3)})`;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
 
-  synthOscillator.frequency.setTargetAtTime(currentFrequency, audioContext.currentTime, 0.02);
+  ctx.beginPath();
+  ctx.moveTo(scannerState.markerX - radius * 0.9, scannerState.markerY - radius * 0.9);
+  ctx.lineTo(scannerState.markerX + radius * 0.9, scannerState.markerY + radius * 0.9);
+  ctx.moveTo(scannerState.markerX + radius * 0.9, scannerState.markerY - radius * 0.9);
+  ctx.lineTo(scannerState.markerX - radius * 0.9, scannerState.markerY + radius * 0.9);
+  ctx.strokeStyle = "rgba(180, 248, 255, 0.6)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
-function adjustAmplitude(delta) {
-  amplitudeLevel = Math.max(
-    MIN_AMPLITUDE,
-    Math.min(MAX_AMPLITUDE, amplitudeLevel + delta)
-  );
+function placeMarkerFromPointer() {
+  const dx = scannerState.pointerX - scannerState.centerX;
+  const dy = scannerState.pointerY - scannerState.centerY;
+  const distance = Math.hypot(dx, dy);
 
-  syncCubeVisualFromControls();
-  updateSynthFromCubePosition();
+  if (distance > scannerState.radius) return;
+
+  scannerState.markerX = scannerState.pointerX;
+  scannerState.markerY = scannerState.pointerY;
+  scannerState.markerVisible = true;
 }
 
-function attemptEscape() {
-  window.open("", "_self");
-  window.close();
+function selectSourceAtPointer() {
+  updateProjectedSources();
 
-  if (startStatusEl) {
-    startStatusEl.textContent = "ESCAPE blocked by browser. Close this tab manually.";
-  }
-}
+  let closest = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
 
-function updateDirectionCards() {
-  directionCards.forEach((card) => {
-    const cardKey = card.getAttribute("data-key");
-    card.classList.toggle("active", cardKey === activeDirectionKey);
-  });
-}
+  for (const source of scannerState.projectedSources) {
+    if (!source.visible) continue;
 
-function updateWasdCards() {
-  wasdCards.forEach((card) => {
-    const cardKey = card.getAttribute("data-key");
-    card.classList.toggle("active", activeWasdKeys.has(cardKey));
-  });
-}
-
-function setActiveDirection(nextKey) {
-  if (!directionMap[nextKey]) return;
-
-  activeDirectionKey = nextKey;
-  updateDirectionCards();
-}
-
-function keyToDirectionKey(key) {
-  if (directionMap[key]) return key;
-  return null;
-}
-
-function keyToWasdKey(key) {
-  const upper = key.toUpperCase();
-  if (["W", "A", "S", "D"].includes(upper)) {
-    return upper;
-  }
-
-  return null;
-}
-
-function applyWasdMovement() {
-  const moveUp = activeWasdKeys.has("W");
-  const moveDown = activeWasdKeys.has("S");
-  const moveLeft = activeWasdKeys.has("A");
-  const moveRight = activeWasdKeys.has("D");
-
-  let accelX = 0;
-  let accelY = 0;
-
-  if (moveUp) {
-    accelY -= WASD_ACCELERATION;
-  }
-  if (moveDown) {
-    accelY += WASD_ACCELERATION;
-  }
-  if (moveLeft) {
-    accelX -= WASD_ACCELERATION;
-  }
-  if (moveRight) {
-    accelX += WASD_ACCELERATION;
+    const dx = scannerState.pointerX - source.x;
+    const dy = scannerState.pointerY - source.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance > source.detectRadius) continue;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      closest = source;
+    }
   }
 
-  cubeVelocityX += accelX;
-  cubeVelocityY += accelY;
-  cubeVelocityX *= WASD_FRICTION;
-  cubeVelocityY *= WASD_FRICTION;
+  if (!closest) return;
 
-  cubeVelocityX = Math.max(-WASD_MAX_SPEED, Math.min(WASD_MAX_SPEED, cubeVelocityX));
-  cubeVelocityY = Math.max(-WASD_MAX_SPEED, Math.min(WASD_MAX_SPEED, cubeVelocityY));
+  const model = scannerState.sources[closest.id];
+  if (!model) return;
 
-  cubeOffsetX += cubeVelocityX;
-  cubeOffsetY += cubeVelocityY;
+  if (!model.selected) {
+    model.selected = true;
+    model.discovered = true;
+    scannerState.discovered[model.type] += 1;
+  }
 
-  syncCubeOverlayPosition();
+  scannerState.markerX = closest.x;
+  scannerState.markerY = closest.y;
+  scannerState.markerVisible = true;
 }
 
-function runWasdMovementLoop() {
-  const isMoving = Math.abs(cubeVelocityX) > 0.05 || Math.abs(cubeVelocityY) > 0.05;
-  if (activeWasdKeys.size === 0 && !isMoving) {
-    cubeVelocityX = 0;
-    cubeVelocityY = 0;
-    wasdMoveAnimationId = null;
+function updateReadout() {
+  if (!latReadoutEl || !lonReadoutEl || !depthReadoutEl) return;
+
+  if (!scannerState.pointerInside) {
+    latReadoutEl.textContent = "0.0°";
+    lonReadoutEl.textContent = "0.0°";
+    depthReadoutEl.textContent = "0%";
     return;
   }
 
-  applyWasdMovement();
-  wasdMoveAnimationId = window.requestAnimationFrame(runWasdMovementLoop);
+  const dx = scannerState.pointerX - scannerState.centerX;
+  const dy = scannerState.pointerY - scannerState.centerY;
+  const distance = Math.hypot(dx, dy);
+  if (distance > scannerState.radius) {
+    depthReadoutEl.textContent = "0%";
+    if (materialReadoutEl) {
+      materialReadoutEl.textContent = "None";
+    }
+    return;
+  }
+
+  const nx = dx / scannerState.radius;
+  const ny = dy / scannerState.radius;
+  const lat = clamp(-ny, -1, 1) * 90;
+  const localLon = Math.atan2(nx, Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))) * (180 / Math.PI);
+  const lon = localLon + (scannerState.rotationLon * 180) / Math.PI;
+  const depth = Math.round((1 - distance / scannerState.radius) * 100);
+
+  latReadoutEl.textContent = `${lat.toFixed(1)}°`;
+  lonReadoutEl.textContent = `${lon.toFixed(1)}°`;
+  depthReadoutEl.textContent = `${depth}%`;
 }
 
-function handleControlKeydown(event) {
-  if (controlPanelEl.classList.contains("hidden")) {
-    return;
+function updateMaterialHud(hoveredSource) {
+  if (materialReadoutEl) {
+    materialReadoutEl.textContent = hoveredSource
+      ? MATERIAL_CONFIG[hoveredSource.type].label
+      : "None";
   }
 
-  if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
-    event.preventDefault();
-    controlPanelEl.classList.add("space-active");
-    cycleWaveformMode();
-    return;
+  if (waterScoreReadoutEl) {
+    waterScoreReadoutEl.textContent = Math.floor(scannerState.waterScore).toString();
   }
 
-  const nextKey = keyToDirectionKey(event.key);
-  if (!nextKey) {
-    const wasdKey = keyToWasdKey(event.key);
-    if (!wasdKey) {
+  if (contaminationReadoutEl) {
+    contaminationReadoutEl.textContent = `${Math.floor(scannerState.contaminationScore)}/${CONTAMINATION_LIMIT}`;
+  }
+
+  if (missionStatusEl) {
+    missionStatusEl.textContent = scannerState.missionMessage;
+    missionStatusEl.dataset.state = scannerState.missionState;
+  }
+
+  if (graphWaterEl) {
+    graphWaterEl.textContent = `${scannerState.discovered.water}/${scannerState.totalByType.water}`;
+  }
+  if (graphToxinEl) {
+    graphToxinEl.textContent = `${scannerState.discovered.toxin}/${scannerState.totalByType.toxin}`;
+  }
+  if (graphWasteEl) {
+    graphWasteEl.textContent = `${scannerState.discovered.waste}/${scannerState.totalByType.waste}`;
+  }
+}
+
+function updateMaterialAudio(hoveredSource) {
+  if (audioState.manualPreviewMaterial) {
+    const context = ensureAudioContext();
+    const previewMaterial = audioState.manualPreviewMaterial;
+    const config = MATERIAL_CONFIG[previewMaterial];
+    if (!context || !config || context.state === "suspended") {
       return;
     }
 
-    event.preventDefault();
-    activeWasdKeys.add(wasdKey);
-    applyWasdMovement();
-    updateWasdCards();
-    if (!wasdMoveAnimationId) {
-      wasdMoveAnimationId = window.requestAnimationFrame(runWasdMovementLoop);
+    if (audioState.manualPreviewNextBeepAt === 0) {
+      audioState.manualPreviewNextBeepAt = context.currentTime;
+    }
+
+    if (context.currentTime >= audioState.manualPreviewNextBeepAt) {
+      playMaterialBeep(previewMaterial, 0.62, 1);
+      const interval = (config.beepMinInterval + config.beepMaxInterval) * 0.5;
+      audioState.manualPreviewNextBeepAt = context.currentTime + interval;
     }
     return;
   }
 
+  if (scannerState.missionState !== "running") {
+    stopMaterialTone();
+    return;
+  }
+
+  if (!hoveredSource || hoveredSource.length === 0) {
+    stopMaterialTone();
+    return;
+  }
+
+  const context = ensureAudioContext();
+  if (!context || context.state === "suspended") {
+    return;
+  }
+
+  const activeIds = new Set(hoveredSource.map((source) => source.id));
+  for (const sourceId of audioState.sourceBeepSchedule.keys()) {
+    if (!activeIds.has(sourceId)) {
+      audioState.sourceBeepSchedule.delete(sourceId);
+    }
+  }
+
+  const gainScale = 1 / Math.sqrt(Math.max(1, hoveredSource.length));
+  for (const source of hoveredSource) {
+    const config = MATERIAL_CONFIG[source.type];
+    if (!config) continue;
+
+    if (!audioState.sourceBeepSchedule.has(source.id)) {
+      const stagger = Math.random() * config.beepMaxInterval * 0.45;
+      audioState.sourceBeepSchedule.set(source.id, context.currentTime + stagger);
+      continue;
+    }
+
+    const nextBeepAt = audioState.sourceBeepSchedule.get(source.id) ?? context.currentTime;
+    if (context.currentTime < nextBeepAt) {
+      continue;
+    }
+
+    playMaterialBeep(source.type, source.proximity ?? 0, gainScale);
+    const interval =
+      config.beepMaxInterval - (config.beepMaxInterval - config.beepMinInterval) * (source.proximity ?? 0);
+    audioState.sourceBeepSchedule.set(source.id, context.currentTime + interval);
+    audioState.currentMaterial = source.type;
+  }
+}
+
+function render(timeMs) {
+  const previousTime = scannerState.lastFrameTime || timeMs;
+  const deltaSeconds = clamp((timeMs - previousTime) / 1000, 0, 0.05);
+  scannerState.lastFrameTime = timeMs;
+
+  ctx.clearRect(0, 0, scannerState.width, scannerState.height);
+  updateProjectedSources();
+  const hoveredSource = updateHoveredSource();
+
+  drawBackground();
+  drawPlanet();
+  drawMaterialSources();
+  drawScanReticle();
+  drawScanMarker();
+  updateReadout();
+  updateMaterialHud(hoveredSource);
+  updateMaterialAudio(scannerState.activeSources);
+
+  if (scannerState.missionState === "running" && hoveredSource) {
+    const model = scannerState.sources[hoveredSource.id];
+    if (!model || !model.selected) {
+      // No scoring until a unit has been confirmed via right-click selection.
+    } else if (model.type === "water") {
+      scannerState.waterScore += deltaSeconds * WATER_RATE;
+    } else if (model.type === "toxin") {
+      scannerState.contaminationScore += deltaSeconds * TOXIN_RATE;
+    } else if (model.type === "waste") {
+      scannerState.contaminationScore += deltaSeconds * WASTE_RATE;
+    }
+  }
+
+  evaluateMissionState();
+
+  scannerState.drift += 0.01;
+  window.requestAnimationFrame(render);
+}
+
+function updatePointer(event) {
+  const rect = planetCanvas.getBoundingClientRect();
+  scannerState.pointerX = event.clientX - rect.left;
+  scannerState.pointerY = event.clientY - rect.top;
+
+  const dx = scannerState.pointerX - scannerState.centerX;
+  const dy = scannerState.pointerY - scannerState.centerY;
+  scannerState.pointerInside = Math.hypot(dx, dy) <= scannerState.radius;
+}
+
+planetCanvas.addEventListener("pointerdown", (event) => {
+  if (scannerState.missionState !== "running") {
+    return;
+  }
+
+  unlockAudioContext().catch(() => {});
+  updatePointer(event);
+  if (event.button === 2) {
+    selectSourceAtPointer();
+    return;
+  }
+
+  if (event.button !== 0) {
+    return;
+  }
+
+  scannerState.dragging = true;
+  scannerState.dragStartX = scannerState.pointerX;
+  scannerState.dragStartY = scannerState.pointerY;
+  scannerState.dragStartLon = scannerState.rotationLon;
+  scannerState.dragStartLat = scannerState.rotationLat;
+  planetCanvas.setPointerCapture(event.pointerId);
+});
+
+planetCanvas.addEventListener("pointermove", (event) => {
+  updatePointer(event);
+  if (!scannerState.dragging) return;
+
+  const dx = scannerState.pointerX - scannerState.dragStartX;
+  const dy = scannerState.pointerY - scannerState.dragStartY;
+  scannerState.rotationLon = scannerState.dragStartLon + dx * 0.01;
+  scannerState.rotationLat = clamp(scannerState.dragStartLat + dy * 0.01, -1.15, 1.15);
+});
+
+planetCanvas.addEventListener("pointerup", (event) => {
+  if (!scannerState.dragging) {
+    return;
+  }
+
+  scannerState.dragging = false;
+  if (planetCanvas.hasPointerCapture(event.pointerId)) {
+    planetCanvas.releasePointerCapture(event.pointerId);
+  }
+});
+
+planetCanvas.addEventListener("pointerleave", () => {
+  scannerState.pointerInside = false;
+});
+
+planetCanvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
-  if (nextKey === "ArrowLeft") {
-    adjustFrequency(-FREQUENCY_STEP);
-  } else if (nextKey === "ArrowRight") {
-    adjustFrequency(FREQUENCY_STEP);
-  } else if (nextKey === "ArrowUp") {
-    adjustAmplitude(AMPLITUDE_STEP);
-  } else if (nextKey === "ArrowDown") {
-    adjustAmplitude(-AMPLITUDE_STEP);
-  }
+});
 
-  setActiveDirection(nextKey);
-}
-
-function showControlPanel() {
-  modePanelEl.classList.add("hidden");
-  controlPanelEl.classList.remove("hidden");
-  if (hudPanelEl) {
-    hudPanelEl.classList.remove("hidden");
-  }
-  if (cubeOverlayEl) {
-    cubeOverlayEl.classList.remove("hidden");
-  }
-  if (cubeHoverRingEl) {
-    cubeHoverRingEl.classList.remove("hidden");
-  }
-  startMenuEl.classList.remove("hidden");
-  document.body.classList.remove("start-cover-active");
-  setActiveDirection(activeDirectionKey);
-}
-
-function initializeStartMenu() {
-  startOnePlayerButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    showControlPanel();
+for (const button of materialKeyButtons) {
+  button.addEventListener("pointerenter", () => {
+    const material = button.dataset.material;
+    unlockAudioContext().catch(() => {});
+    setMaterialPreview(material);
   });
 
-  escapeButton.addEventListener("click", attemptEscape);
-
-  if (waveformSelectEl) {
-    waveformSelectEl.addEventListener("change", () => {
-      setWaveformMode(waveformSelectEl.value);
-    });
-  }
-
-  if (waveCoordsToggleEl) {
-    waveCoordsToggleEl.addEventListener("change", (event) => {
-      setWaveCoordsVisible(event.target.checked);
-    });
-  }
-
-  if (waveHeaderToggleEl) {
-    waveHeaderToggleEl.addEventListener("change", (event) => {
-      setWaveHeaderVisible(event.target.checked);
-    });
-  }
-
-  if (floatStopToggleEl) {
-    floatStopToggleEl.addEventListener("change", (event) => {
-      setFloatStopped(event.target.checked);
-    });
-  }
-
-  updateSynthFromCubePosition();
+  button.addEventListener("pointerleave", () => {
+    const material = button.dataset.material;
+    clearMaterialPreview(material);
+  });
 }
 
-function handleControlKeyup(event) {
-  if (controlPanelEl.classList.contains("hidden")) {
+planetCanvas.addEventListener(
+  "wheel",
+  (event) => {
+    event.preventDefault();
+    if (scannerState.missionState !== "running") {
+      return;
+    }
+    unlockAudioContext().catch(() => {});
+    scannerState.zoom = clamp(scannerState.zoom + (event.deltaY > 0 ? -0.08 : 0.08), 0.65, 1.45);
+    scannerState.radius = scannerState.baseRadius * scannerState.zoom;
+  },
+  { passive: false }
+);
+
+if (restartButtonEl) {
+  restartButtonEl.addEventListener("click", () => {
+    resetMission();
+  });
+}
+
+if (startMissionButtonEl) {
+  startMissionButtonEl.addEventListener("click", () => {
+    unlockAudioContext().catch(() => {});
+    startMissionFromMenu();
+  });
+}
+
+if (viewRulesButtonEl) {
+  viewRulesButtonEl.addEventListener("click", () => {
+    openRulesMenu();
+  });
+}
+
+if (volumeKnobEl) {
+  volumeKnobEl.value = String(Math.round(audioState.volume * 100));
+  volumeKnobEl.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const parsed = Number(target.value);
+    if (!Number.isFinite(parsed)) return;
+    setMasterVolume(parsed / 100);
+  });
+}
+
+window.addEventListener("keydown", (event) => {
+  if (document.body.classList.contains("start-cover-active") && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    unlockAudioContext().catch(() => {});
+    startMissionFromMenu();
     return;
   }
 
-  if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
-    controlPanelEl.classList.remove("space-active");
+  if (event.key.toLowerCase() === "r") {
+    resetMission();
   }
+});
 
-  const directionKey = keyToDirectionKey(event.key);
-  if (directionKey && directionKey === activeDirectionKey) {
-    activeDirectionKey = null;
-    updateDirectionCards();
-  }
+window.addEventListener("resize", resizeCanvas);
 
-  const wasdKey = keyToWasdKey(event.key);
-  if (!wasdKey) {
-    return;
-  }
-
-  activeWasdKeys.delete(wasdKey);
-  updateWasdCards();
-  if (activeWasdKeys.size === 0 && wasdMoveAnimationId) {
-    window.cancelAnimationFrame(wasdMoveAnimationId);
-    wasdMoveAnimationId = null;
-  }
-}
-
-initializeStartMenu();
-initializeWaveVisualizer();
-setWaveformMode(getSelectedWaveform());
-syncCubeVisualFromControls();
-setCubeBoundaryVars();
-syncCubeOverlayPosition();
-updateSynthFromCubePosition();
-updateDirectionCards();
-updateWasdCards();
-setWaveCoordsVisible(showWaveCoords);
-setWaveHeaderVisible(showWaveHeader);
-setFloatStopped(isFloatStopped);
-window.addEventListener("keydown", handleControlKeydown);
-window.addEventListener("keyup", handleControlKeyup);
+resetMission();
+updateMaterialKeyButtons();
+resizeCanvas();
+render();
