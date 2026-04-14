@@ -39,7 +39,7 @@ const SCAN_SIZE_SCALE = 1.5;
 const MATERIAL_CONFIG = {
   water: {
     label: "Water",
-    color: "#77a8bb",
+    color: "#9ddff4",
     waveform: "sine",
     beepBaseFrequency: 320,
     beepFrequencyRange: 340,
@@ -91,6 +91,9 @@ const scannerState = {
   markerX: 0,
   markerY: 0,
   markerVisible: false,
+  touchTapStartX: 0,
+  touchTapStartY: 0,
+  touchTapMoved: false,
   sources: [],
   projectedSources: [],
   activeSources: [],
@@ -308,6 +311,17 @@ function clearMaterialPreview(material) {
   updateMaterialKeyButtons();
 }
 
+function toggleMaterialPreview(material) {
+  if (!MATERIAL_CONFIG[material]) return;
+
+  if (audioState.manualPreviewMaterial === material) {
+    clearMaterialPreview(material);
+    return;
+  }
+
+  setMaterialPreview(material);
+}
+
 function startMissionFromMenu() {
   if (!document.body.classList.contains("start-cover-active")) return;
   document.body.classList.remove("start-cover-active");
@@ -434,6 +448,7 @@ function drawBackground() {
 function drawPlanet() {
   const { centerX, centerY, radius } = scannerState;
 
+  // Base planet body: radial fill gives the sphere depth.
   const planetFill = ctx.createRadialGradient(
     centerX - radius * 0.28,
     centerY - radius * 0.35,
@@ -451,11 +466,13 @@ function drawPlanet() {
   ctx.fillStyle = planetFill;
   ctx.fill();
 
+  // Clip to the planet circle so interior linework does not spill outside the globe.
   ctx.save();
   ctx.beginPath();
   ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
   ctx.clip();
 
+  // Latitude-style scan bands with subtle wobble for motion.
   const bands = 11;
   for (let index = 0; index < bands; index += 1) {
     const t = index / (bands - 1);
@@ -479,6 +496,7 @@ function drawPlanet() {
     ctx.stroke();
   }
 
+  // Meridian-style rings; alpha and width vary by facing angle for faux 3D depth.
   const meridians = 12;
   for (let index = 0; index < meridians; index += 1) {
     const p = index / meridians;
@@ -493,8 +511,10 @@ function drawPlanet() {
     ctx.stroke();
   }
 
+  // End interior clipping before drawing external shading and border.
   ctx.restore();
 
+  // Outer rim vignette darkens the perimeter to reinforce sphere curvature.
   const rim = ctx.createRadialGradient(
     centerX,
     centerY,
@@ -510,6 +530,7 @@ function drawPlanet() {
   ctx.fillStyle = rim;
   ctx.fill();
 
+  // Final highlight stroke around the edge of the planet.
   ctx.beginPath();
   ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(159, 241, 255, 0.45)";
@@ -843,6 +864,12 @@ planetCanvas.addEventListener("pointerdown", (event) => {
     return;
   }
 
+  if (event.pointerType === "touch") {
+    scannerState.touchTapStartX = scannerState.pointerX;
+    scannerState.touchTapStartY = scannerState.pointerY;
+    scannerState.touchTapMoved = false;
+  }
+
   scannerState.dragging = true;
   scannerState.dragStartX = scannerState.pointerX;
   scannerState.dragStartY = scannerState.pointerY;
@@ -855,6 +882,17 @@ planetCanvas.addEventListener("pointermove", (event) => {
   updatePointer(event);
   if (!scannerState.dragging) return;
 
+  if (event.pointerType === "touch") {
+    const moved =
+      Math.hypot(
+        scannerState.pointerX - scannerState.touchTapStartX,
+        scannerState.pointerY - scannerState.touchTapStartY
+      ) > 8;
+    if (moved) {
+      scannerState.touchTapMoved = true;
+    }
+  }
+
   const dx = scannerState.pointerX - scannerState.dragStartX;
   const dy = scannerState.pointerY - scannerState.dragStartY;
   scannerState.rotationLon = scannerState.dragStartLon + dx * 0.01;
@@ -866,7 +904,20 @@ planetCanvas.addEventListener("pointerup", (event) => {
     return;
   }
 
+  if (event.pointerType === "touch" && !scannerState.touchTapMoved) {
+    selectSourceAtPointer();
+  }
+
   scannerState.dragging = false;
+  scannerState.touchTapMoved = false;
+  if (planetCanvas.hasPointerCapture(event.pointerId)) {
+    planetCanvas.releasePointerCapture(event.pointerId);
+  }
+});
+
+planetCanvas.addEventListener("pointercancel", (event) => {
+  scannerState.dragging = false;
+  scannerState.touchTapMoved = false;
   if (planetCanvas.hasPointerCapture(event.pointerId)) {
     planetCanvas.releasePointerCapture(event.pointerId);
   }
@@ -890,6 +941,12 @@ for (const button of materialKeyButtons) {
   button.addEventListener("pointerleave", () => {
     const material = button.dataset.material;
     clearMaterialPreview(material);
+  });
+
+  button.addEventListener("click", () => {
+    const material = button.dataset.material;
+    unlockAudioContext().catch(() => {});
+    toggleMaterialPreview(material);
   });
 }
 
